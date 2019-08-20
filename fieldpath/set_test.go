@@ -83,9 +83,12 @@ func BenchmarkFieldSet(b *testing.B) {
 		}
 		operands := make([]*Set, 500)
 		serialized := make([][]byte, len(operands))
+		serializedV2 := make([][]byte, len(operands))
+		tableV2 := make([][]byte, len(operands))
 		for i := range operands {
 			operands[i] = makeSet()
 			serialized[i], _ = operands[i].ToJSON()
+			serializedV2[i], tableV2[i], _ = operands[i].ToBinary_V2Experimental()
 		}
 		randOperand := func() *Set { return operands[rand.Intn(len(operands))] }
 
@@ -101,6 +104,18 @@ func BenchmarkFieldSet(b *testing.B) {
 				randOperand().Has(randomPathMaker.makePath(here.minPathLen, here.maxPathLen))
 			}
 		})
+
+		b.Run(fmt.Sprintf("serialize-size-%v", here.size), func(b *testing.B) {
+			total := 0
+			for _, b := range serialized {
+				total += len(b)
+			}
+			b.ReportAllocs()
+			// We're just hacking the allocation reporter to report the size.
+			for i := 0; i < b.N; i++ {
+				_ = make([]byte, total)
+			}
+		})
 		b.Run(fmt.Sprintf("serialize-%v", here.size), func(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
@@ -112,6 +127,32 @@ func BenchmarkFieldSet(b *testing.B) {
 			s := NewSet()
 			for i := 0; i < b.N; i++ {
 				s.FromJSON(bytes.NewReader(serialized[rand.Intn(len(serialized))]))
+			}
+		})
+
+		b.Run(fmt.Sprintf("serializeV2-size-%v", here.size), func(b *testing.B) {
+			total := 0
+			for _, b := range serializedV2 {
+				total += len(b)
+			}
+			b.ReportAllocs()
+			// We're just hacking the allocation reporter to report the size.
+			for i := 0; i < b.N; i++ {
+				_ = make([]byte, total)
+			}
+		})
+		b.Run(fmt.Sprintf("serializeV2-%v", here.size), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				randOperand().ToBinary_V2Experimental()
+			}
+		})
+		b.Run(fmt.Sprintf("deserializeV2-%v", here.size), func(b *testing.B) {
+			b.ReportAllocs()
+			s := NewSet()
+			for i := 0; i < b.N; i++ {
+				ind := rand.Intn(len(serialized))
+				s.FromBinary_V2Experimental(bytes.NewReader(serializedV2[ind]), tableV2[ind])
 			}
 		})
 

@@ -37,11 +37,34 @@ func TestSerializeV1(t *testing.T) {
 		x2 := NewSet()
 		err = x2.FromJSON(bytes.NewReader(b))
 		if err != nil {
-			t.Errorf("Failed to deserialize %s: %v\n%#v", b, err, x)
+			t.Fatalf("Failed to deserialize %s: %v\n%#v", b, err, x)
 		}
 		if !x2.Equals(x) {
 			b2, _ := x2.ToJSON()
-			t.Errorf("failed to reproduce original:\n\n%s\n\n%s\n\n%s\n\n%s\n", x, b, b2, x2)
+			t.Fatalf("failed to reproduce original:\n\n%s\n\n%s\n\n%s\n\n%s\n", x, b, b2, x2)
+		}
+	}
+}
+
+func TestSerializeV2(t *testing.T) {
+	for i := 0; i < 500; i++ {
+		x := NewSet()
+		for j := 0; j < 50; j++ {
+			x.Insert(randomPathMaker.makePath(2, 5))
+		}
+		b, table, err := x.ToBinary_V2Experimental()
+		if err != nil {
+			t.Errorf("Failed to serialize %#v: %v", x, err)
+			continue
+		}
+		x2 := NewSet()
+		err = x2.FromBinary_V2Experimental(bytes.NewReader(b), table)
+		if err != nil {
+			t.Fatalf("Failed to deserialize %s: %v\n%#v", b, err, x)
+		}
+		if !x2.Equals(x) {
+			b2, _,_ := x2.ToBinary_V2Experimental()
+			t.Fatalf("failed to reproduce original:\n\n%s\n\n%q\n\n%q\n\n%s\n", x, b, b2, x2)
 		}
 	}
 }
@@ -58,6 +81,9 @@ func TestSerializeV1GoldenData(t *testing.T) {
 			if err != nil {
 				t.Errorf("Failed to deserialize %s: %v\n%#v", str, err, x)
 			}
+			/*b, err := x.ToJSON_V2Experimental()
+			fmt.Printf("\n\n%s\n\n", b)
+			t.Fail()*/
 			b, err := x.ToJSON()
 			if err != nil {
 				t.Errorf("Failed to serialize %#v: %v", x, err)
@@ -69,6 +95,31 @@ func TestSerializeV1GoldenData(t *testing.T) {
 		})
 	}
 }
+
+/*
+func TestSerializeV2GoldenData(t *testing.T) {
+	examples := []string{
+		`[0,"aaa",0,"aab",0,"aac",0,"aad",0,"aae",0,"aaf",3,{"name":"first"},3,{"name":"second"},3,{"port":443,"protocol":"tcp"},3,{"port":443,"protocol":"udp"},1,1,1,2,1,3,1,"aa",1,"ab",1,true,2,1,2,2,2,3,2,4]`,
+		`[4,"aaa",[7,{"name":"second"},[5,3,[0,"aab"]],1,3,1,true],4,"aab",[0,"aaa",4,"aaf",[7,{"port":443,"protocol":"udp"},[3,{"port":443,"protocol":"tcp"}]],3,{"name":"first"}],4,"aac",[4,"aaa",[1,1],0,"aac",5,3,[3,{"name":"second"}]],4,"aad",[4,"aac",[1,1],4,"aaf",[7,{"name":"first"},[3,{"name":"first"}]],6,1,[2,1,6,3,[1,true]]],4,"aae",[0,"aae",7,{"port":443,"protocol":"tcp"},[3,{"port":443,"protocol":"udp"}],6,4,[0,"aaf"]],4,"aaf",[6,1,[0,"aac"],2,2,2,3],7,{"name":"first"},[4,"aad",[0,"aaf"]],7,{"port":443,"protocol":"tcp"},[4,"aaa",[0,"aad"]],7,{"port":443,"protocol":"udp"},[0,"aac",7,{"name":"first"},[2,3],7,{"port":443,"protocol":"udp"},[2,4]],5,1,[4,"aac",[2,4],0,"aaf",3,{"port":443,"protocol":"tcp"}],5,2,[4,"aad",[0,"aaf"],2,1],5,3,[0,"aaa",3,{"name":"first"},2,2],5,"aa",[4,"aab",[0,"aaf"],0,"aae",7,{"name":"first"},[0,"aad"],2,2],5,"ab",[4,"aaf",[2,4],3,{"port":443,"protocol":"tcp"},3,{"port":443,"protocol":"udp"},5,1,[3,{"port":443,"protocol":"udp"}],6,1,[4,"aae",[2,4]]],5,true,[7,{"name":"second"},[0,"aaa"],6,2,[3,{"port":443,"protocol":"tcp"}]],6,1,[6,3,[0,"aaf"]],6,2,[0,"aae",7,{"port":443,"protocol":"tcp"},[1,1]],6,3,[4,"aab",[5,true,[1,"aa"]],0,"aaf",2,1],6,4,[5,"aa",[4,"aab",[3,{"name":"second"}]]]]`,
+	}
+	for i, str := range examples {
+		t.Run(fmt.Sprintf("%v", i), func(t *testing.T) {
+			x := NewSet()
+			err := x.FromJSON(strings.NewReader(str))
+			if err != nil {
+				t.Errorf("Failed to deserialize %s: %v\n%#v", str, err, x)
+			}
+			b, err := x.ToBinary_V2Experimental()
+			if err != nil {
+				t.Errorf("Failed to serialize %#v: %v", x, err)
+				return
+			}
+			if string(b) != str {
+				t.Errorf("Failed;\ngot:  %s\nwant: %s\n", b, str)
+			}
+		})
+	}
+}*/
 
 func TestDropUnknown(t *testing.T) {
 	input := `{"f:aaa":{},"r:aab":{}}`
@@ -87,3 +138,4 @@ func TestDropUnknown(t *testing.T) {
 		t.Errorf("Failed;\ngot:  %s\nwant: %s\n", b, expect)
 	}
 }
+
